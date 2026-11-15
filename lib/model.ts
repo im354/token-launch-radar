@@ -1019,6 +1019,7 @@ export function radarRow(row: BoardRow): RadarRow {
     watchlist: row.watchlist,
     launch_unlikely: row.launch_unlikely,
     unlikely_reasons: row.unlikely_reasons,
+    launch_reason: row.launch_reason,
     playbook: row.playbook,
     implied_value_usd: row.implied_value_usd,
     implied_low_usd: row.implied_low_usd,
@@ -1028,6 +1029,7 @@ export function radarRow(row: BoardRow): RadarRow {
     plausible_rank: row.plausible_rank,
     launch_likelihood: row.model.launch_likelihood,
     base_usd: row.model.base_usd,
+    figure_value_usd: row.model.figure_value_usd,
     category_multiple: row.model.category_multiple,
     category_samples: row.model.category_samples,
     multiple_source: row.model.multiple_source,
@@ -1042,7 +1044,8 @@ export function radarRow(row: BoardRow): RadarRow {
 /** Everything the dashboard renders, from the snapshot. */
 export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): { board: BoardRow[]; radar: RadarData } {
   const table = buildMultiples(snapshot, model);
-  const board = buildBoard(snapshot, model, table);
+  const built = buildBoard(snapshot, model, table);
+  const board = built.rows;
   const live = liveRows(snapshot);
   const watchlist = new Set(snapshot.watchlist);
   const covered = board.filter((r) => watchlist.has(r.slug)).length;
@@ -1053,6 +1056,10 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     count: board.filter((r) => r.unlikely_reasons.includes(rule.label)).length,
   }));
   const preToken = board.length;
+  const factor = built.launch.factor;
+  const factorText = factor >= model.launch_likelihood_unlikely
+    ? `${Math.round(factor * 100)}%`
+    : `${(factor * 100).toFixed(4)}%`;
   const radar: RadarData = {
     as_of: snapshot.as_of,
     source: snapshot.source,
@@ -1080,7 +1087,11 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     assumptions: {
       community_allocation: model.community_allocation,
       eligibility_share: model.eligibility_share,
-      note: `Expected airdrop is a stated assumption, not a promise: it takes ${Math.round(model.community_allocation * 100)}% of the implied value as a community allocation and ${Math.round(model.eligibility_share * 100)}% of that as one wallet\u2019s share. The launch-likelihood factor is the other stated assumption: a protocol the watchlist definition leaves out is taken to be one-fiftieth as likely to issue a token of its own, so its expected launch value is ${Math.round(model.launch_likelihood_unlikely * 100)}% of what its figures imply.`,
+      launch_likelihood: factor,
+      launch_likelihood_ceiling: model.launch_likelihood_unlikely,
+      plausible_floor_usd: built.launch.weakest_plausible_figure,
+      largest_unlikely_figure_usd: built.launch.largest_unlikely_figure,
+      note: `Expected airdrop is a stated assumption, not a promise: it takes ${Math.round(model.community_allocation * 100)}% of the implied value as a community allocation and ${Math.round(model.eligibility_share * 100)}% of that as one wallet\u2019s share. The launch factor is the other stated assumption. A protocol the watchlist definition leaves out is discounted to ${factorText} of the value its figures imply, which is at most ${Math.round(model.launch_likelihood_unlikely * 100)}%: the ceiling is shortened whenever ${Math.round(model.launch_likelihood_unlikely * 100)}% would still leave a tagged protocol above the weakest plausible launch, so that every tagged row ranks below every plausible one with its own order intact. The discount is what the board ranks by, so a tagged protocol's row shows its discounted value; the value its figures imply is carried alongside as figure value.`,
     },
     rows: board.map(radarRow),
     live,
