@@ -106,6 +106,10 @@
     return (n > 0 ? '+' : '') + n.toFixed(1) + '%';
   }
   function mult(n) { return n === null ? 'n/a' : n.toFixed(2) + 'x'; }
+  function shareOf(n) {
+    if (n === null || !isFinite(n)) return 'n/a';
+    return (n >= 0.01 ? (n * 100).toFixed(2) : (n * 100).toFixed(4)) + '%';
+  }
   function ageText(years, days) {
     if (years !== null && years >= 0.08) return years >= 1 ? years.toFixed(1) + 'y' : Math.max(1, Math.round(years * 12)) + 'mo';
     if (days !== null) return days >= 365 ? (days / 365).toFixed(1) + 'y' : Math.max(0, Math.round(days)) + 'd';
@@ -136,6 +140,13 @@
     }
     var base = num(pick(r.base_value_usd, r.base_usd));
     if (base === null && multiple !== null) base = tvl * multiple;
+    // The value the figures imply before the launch discount, and the discount itself. A row the
+    // watchlist definition leaves out carries a factor below 1, so its breakdown has to show both
+    // numbers or the arithmetic looks wrong to a reader who multiplies it out.
+    var figure = num(pick(r.figure_value_usd, r.model && r.model.figure_value_usd));
+    if (figure === null) figure = implied;
+    var launch = num(pick(r.launch_likelihood, r.model && r.model.launch_likelihood));
+    if (launch === null) launch = figure > 0 ? implied / figure : 1;
     var low = num(pick(r.implied_low_usd, r.implied_low));
     var high = num(pick(r.implied_high_usd, r.implied_high));
     var airdrop = num(pick(r.expected_airdrop_usd, r.airdrop_usd));
@@ -149,7 +160,7 @@
       chains: Array.isArray(r.chains) ? r.chains.filter(function (c) { return typeof c === 'string' && c.length > 0; }) : [],
       tvl: tvl, change: change, years: years, days: days,
       implied: implied, low: low, high: high, airdrop: airdrop, multiple: multiple, peers: peers,
-      base: base, growthMult: growthMult, maturityMult: maturityMult,
+      base: base, figure: figure, launch: launch, growthMult: growthMult, maturityMult: maturityMult,
       unlikely: unlikely, reason: reason, watch: onWatch,
       steps: Array.isArray(r.farm_steps) ? r.farm_steps : []
     };
@@ -459,6 +470,10 @@
     defRow(dl, 'Base = TVL x multiple', r.base === null ? 'n/a' : money(r.base));
     defRow(dl, 'Growth adjustment at ' + pct(r.change) + ' over 7d', mult(r.growthMult), 'adj');
     defRow(dl, 'Maturity adjustment at ' + ageText(r.years, r.days) + ' tokenless', mult(r.maturityMult), 'adj');
+    if (r.unlikely && r.figure !== null && Math.abs(r.figure - r.implied) > 0.5) {
+      defRow(dl, 'Value the figures imply, before the launch discount', money(r.figure), 'adj');
+      defRow(dl, 'Launch factor: what a protocol the watchlist leaves out keeps', shareOf(r.launch), 'adj');
+    }
     defRow(dl, 'Implied value', money(r.implied), 'total');
     detailBody.appendChild(dl);
 
