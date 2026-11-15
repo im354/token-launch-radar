@@ -11,19 +11,20 @@
 <a class="skip" href="#board">Skip to the ranked board</a>
 
 <header class="topbar">
-  <div class="brand">
-    <span class="scope" aria-hidden="true"></span>
-    <span class="brand-name">Token Launch Radar</span>
-  </div>
-  <div class="topmeta">
-    <span class="chip" id="chip-snapshot">snapshot —</span>
-    <span class="chip chip-quiet" id="chip-model">model —</span>
+  <div class="bar-in">
+    <div class="brand">
+      <span class="scope" aria-hidden="true"></span>
+      <span class="brand-name">Token Launch Radar</span>
+    </div>
+    <div class="topmeta">
+      <span class="chip" id="chip-snapshot">snapshot —</span>
+      <span class="chip chip-quiet" id="chip-model">model —</span>
+    </div>
   </div>
 </header>
 
 <main>
   <section class="hero" aria-labelledby="hero-title">
-    <p class="eyebrow">Pre-token protocols, priced against the ones that already trade</p>
     <h1 id="hero-title">Which pre-token protocol has the most value to distribute?</h1>
     <p class="lede" id="hero-lede">Every pre-token protocol, ranked by what a token could be worth if its record stayed as it is: TVL x its category's median market-cap multiple, adjusted for growth and a capped maturity premium.</p>
     <dl class="stats" id="stats"></dl>
@@ -54,8 +55,7 @@
       </select>
     </div>
     <div class="control control-toggles">
-      <span class="label-row">Filters</span>
-      <div class="toggle-row">
+      <div class="toggle-row" role="group" aria-label="Row filters">
         <button type="button" class="toggle" id="toggle-watchlist" aria-pressed="false"><span class="dot"></span>Watchlist only</button>
         <button type="button" class="toggle" id="toggle-unlikely" aria-pressed="false"><span class="dot"></span>Hide unlikely launches</button>
       </div>
@@ -67,10 +67,8 @@
 
   <section class="board-section" id="board" aria-labelledby="board-title">
     <div class="section-head">
-      <div>
-        <h2 id="board-title">Ranked board</h2>
-        <p class="section-note" id="board-note">Rank 1 is the highest implied value. Unlikely launches stay on the board, flagged with the reason on the row.</p>
-      </div>
+      <h2 id="board-title">Ranked board</h2>
+      <p class="section-note" id="board-note">Rank 1 is the highest implied value. Unlikely launches stay on the board, flagged with the reason on the row.</p>
       <p class="count" id="result-count" aria-live="polite">—</p>
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Ranked board, scrollable">
@@ -98,10 +96,8 @@
 
   <section class="reference" aria-labelledby="ref-title">
     <div class="section-head">
-      <div>
-        <h2 id="ref-title">Already trading: reference only</h2>
-        <p class="section-note">These protocols record a token, so the board never ranks them. Their market capitalisation is the market's own figure and is shown here only as the anchor the multiples come from.</p>
-      </div>
+      <h2 id="ref-title">Already trading: reference only</h2>
+      <p class="section-note">These protocols record a token, so the board never ranks them. Their market capitalisation is the market's own figure and is shown here only as the anchor the multiples come from.</p>
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Already-trading reference table, scrollable">
       <table class="ref-table">
@@ -115,7 +111,10 @@
   </section>
 
   <section class="how" id="how" aria-labelledby="how-title">
-    <h2 id="how-title">How this radar works</h2>
+    <div class="section-head">
+      <h2 id="how-title">How this radar works</h2>
+      <p class="section-note">Three rules decide every number on the board: the value model, what stays off it, and the airdrop assumption.</p>
+    </div>
     <div class="how-grid">
       <article class="how-card">
         <h3><span class="step">1</span>The value model</h3>
@@ -139,8 +138,10 @@
 </main>
 
 <footer class="foot">
-  <p><strong>Snapshot</strong> <span id="foot-snapshot">—</span> · <strong>Floor</strong> <span id="foot-floor">—</span> · <strong>Model</strong> <span id="foot-model">—</span></p>
-  <p>Implied value is the radar's own estimate from one sealed snapshot. It is not a price, a promise, or advice. DefiLlama's record is not proof: a protocol shown here as pre-token may still have a token its record does not carry.</p>
+  <div class="foot-in">
+    <p class="foot-facts"><strong>Snapshot</strong> <span id="foot-snapshot">—</span> · <strong>Floor</strong> <span id="foot-floor">—</span> · <strong>Model</strong> <span id="foot-model">—</span></p>
+    <p>Implied value is the radar's own estimate from one sealed snapshot. It is not a price, a promise, or advice. DefiLlama's record is not proof: a protocol shown here as pre-token may still have a token its record does not carry.</p>
+  </div>
 </footer>
 
 <div class="detail" id="detail" role="dialog" aria-modal="false" aria-labelledby="detail-name" hidden>

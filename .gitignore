@@ -1,3 +1,6 @@
 out/
+out*/
+run1/
+run2/
 node_modules/
 *.log
