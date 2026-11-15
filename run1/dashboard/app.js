@@ -454,7 +454,7 @@
     dl.className = 'breakdown';
     defRow(dl, 'TVL', money(r.tvl));
     defRow(dl,
-      'Category multiple' + (r.peers !== null ? ' (' + r.peers + (r.peers === 1 ? ' trading peer' : ' trading peers') + ')' : ''),
+      'Category multiple' + (r.peers !== null ? ' (' + r.peers + ' trading peers)' : ''),
       r.multiple === null ? 'global median' : mult(r.multiple) + (r.peers !== null && r.peers < 3 ? ' (global fallback)' : ''));
     defRow(dl, 'Base = TVL x multiple', r.base === null ? 'n/a' : money(r.base));
     defRow(dl, 'Growth adjustment at ' + pct(r.change) + ' over 7d', mult(r.growthMult), 'adj');

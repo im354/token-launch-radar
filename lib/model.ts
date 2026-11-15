@@ -1146,11 +1146,24 @@ export function parseSnapshot(text: string): Snapshot {
  * Why a board is not one the gate will take, or null. Every rule the gate reads is asserted here before
  * anything is written: row count, watchlist coverage, one slug per protocol, ranks 1..N, implied value
  * never rising with rank, a board that ranks nothing by value, the value caps, the bands, the airdrop
- * estimate, the farm steps' count and length, and the launch_unlikely tag's own consistency.
+ * estimate, the farm steps' count and length, the launch_unlikely tag's own consistency, the single
+ * launch factor the tagged rows share, each row's value being its figure value times its factor, and
+ * every tagged row ranking below every plausible one.
  */
 export function boardIssue(board: BoardRow[], snapshot: Snapshot): string | null {
   if (board.length < MIN_BOARD_ROWS || board.length > MAX_BOARD_ROWS) {
     return `the board holds ${board.length} rows, and the gate takes ${MIN_BOARD_ROWS} to ${MAX_BOARD_ROWS}`;
+  }
+
+  // The discount is one number for the whole board: a per-row factor would make the tagged rows
+  // incomparable with each other and would let a hand-picked row move up.
+  const taggedFactors = new Set(board.filter((r) => r.launch_unlikely).map((r) => r.launch_likelihood));
+  if (taggedFactors.size > 1) {
+    return `the launch_unlikely rows carry ${taggedFactors.size} different launch factors: the discount is one number for the whole board`;
+  }
+  const taggedFactor = taggedFactors.size === 1 ? [...taggedFactors][0]! : MODEL.launch_likelihood_unlikely;
+  if (!(taggedFactor > 0) || taggedFactor > MODEL.launch_likelihood_unlikely) {
+    return `the launch factor is ${taggedFactor}, outside the (0, ${MODEL.launch_likelihood_unlikely}] the model allows`;
   }
 
   const known = new Set(snapshot.protocols.map((p) => p.slug));
@@ -1173,9 +1186,13 @@ export function boardIssue(board: BoardRow[], snapshot: Snapshot): string | null
     if (r.launch_unlikely !== (r.plausible_rank === null)) {
       return `${r.slug} has plausible_rank ${String(r.plausible_rank)} against launch_unlikely=${String(r.launch_unlikely)}`;
     }
-    const likelihood = r.launch_unlikely ? MODEL.launch_likelihood_unlikely : MODEL.launch_likelihood_plausible;
-    if (r.launch_likelihood !== likelihood) {
-      return `${r.slug} carries launch likelihood ${r.launch_likelihood}, not the ${likelihood} its tag gives it`;
+    const likelihood = r.launch_unlikely ? taggedFactor : MODEL.launch_likelihood_plausible;
+    if (r.launch_likelihood !== likelihood || r.model.launch_likelihood !== likelihood) {
+      return `${r.slug} carries launch likelihood ${r.launch_likelihood}/${r.model.launch_likelihood}, not the ${likelihood} its tag gives it`;
+    }
+    const fromFigure = Math.round(r.model.figure_value_usd * likelihood);
+    if (Math.abs(fromFigure - r.implied_value_usd) > 1) {
+      return `${r.slug}'s implied value ${r.implied_value_usd} is not its figure value ${r.model.figure_value_usd} x ${likelihood} (${fromFigure})`;
     }
     const steps = r.farm_steps;
     if (steps.length < FARM_STEPS_MIN || steps.length > FARM_STEPS_MAX) {
@@ -1202,8 +1219,16 @@ export function boardIssue(board: BoardRow[], snapshot: Snapshot): string | null
   const plausible = board.filter((r) => r.plausible_rank !== null).map((r) => r.plausible_rank!).sort((a, b) => a - b);
   for (let i = 0; i < plausible.length; i++) if (plausible[i] !== i + 1) return `plausible rank ${i + 1} is ${plausible[i]}`;
 
-  if (plausible.length > 0 && board[0]!.launch_unlikely) {
-    return `rank 1 is ${board[0]!.slug}, a launch_unlikely row, while ${plausible.length} plausible launches are below it`;
+  // The ordering the brief asks for, asserted rather than assumed: no tagged row sits above a plausible one.
+  const plausibleRanks = board.filter((r) => !r.launch_unlikely).map((r) => r.rank);
+  const unlikelyRanks = board.filter((r) => r.launch_unlikely).map((r) => r.rank);
+  if (plausibleRanks.length > 0 && unlikelyRanks.length > 0) {
+    const lastPlausible = Math.max(...plausibleRanks);
+    const firstUnlikely = Math.min(...unlikelyRanks);
+    if (firstUnlikely <= lastPlausible) {
+      const offender = board.find((r) => r.rank === firstUnlikely)!;
+      return `${offender.slug} is a launch_unlikely row at rank ${firstUnlikely}, at or above the plausible launch at rank ${lastPlausible}`;
+    }
   }
 
   for (let i = 1; i < board.length; i++) {
