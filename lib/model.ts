@@ -391,6 +391,8 @@ export interface RadarData {
   board_size: number;
   early_size: number;
   live_size: number;
+  /** Every protocol in the sealed snapshot: what the page's "protocols scanned" figure reads. */
+  protocols_scanned: number;
   global_multiple: GlobalMultiple;
   multiples: CategoryMultiple[];
   exclusions: ExclusionSummary[];
@@ -1081,6 +1083,8 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     board_size: board.length,
     early_size: board.filter((r) => !watchlist.has(r.slug)).length,
     live_size: live.length,
+    /** The header's first figure: every protocol in the sealed snapshot, ranked and reference rows together. */
+    protocols_scanned: snapshot.protocols.length,
     global_multiple: table.global,
     multiples: table.categories,
     exclusions,
