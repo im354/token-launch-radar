@@ -22,21 +22,30 @@
 //   base      = tvl_usd x category multiple
 //   growth    = 1 + clamp(change_7d, -30, 60) / 100 x 0.5      (change_7d null: 1)
 //   maturity  = 0.7 + 0.3 x min(years since listed_at, 5) / 5  (listed_at null: 1 year)
-//   launch    = 1 for a plausible launch, 0.02 for a protocol the watchlist definition leaves out
-//   implied   = clamp(round(base x growth x maturity x launch), 1, 100T)
+//   figure    = clamp(round(base x growth x maturity), 1, 100T)   the value the figures imply
+//   launch    = 1 for a plausible launch, else the launch factor f below
+//   implied   = clamp(round(figure x launch), 1, 100T)
 //   low/high  = the same arithmetic with the 25th/75th percentile multiple
 //   airdrop   = implied x 0.05 community allocation x 0.10 assumed eligibility share
 //
 // The launch factor is what makes "ranked below the plausible launches" work without an out-of-order
 // sort: the gate refuses a board whose implied value rises as rank ascends, so the ordering has to come
 // out of the value. A bridge's or an exchange's own token is not a launch the reader is waiting for, so
-// its expected launch value is 2% of the value its figures imply, and the same factor scales its band
-// and its airdrop estimate. It is a stated assumption, like the airdrop one, and the page says so.
+// its value is discounted by the launch factor f, and the same factor scales its band and its airdrop.
+//
+//   f = min(2%, band_share x the weakest plausible launch's figure / the largest tagged figure)
+//
+// The second term is what guarantees the ordering rather than merely suggesting it: a bridge with
+// billions of TVL can imply more than a small plausible launch even at 2%, so f is shortened on this
+// snapshot until every tagged row sits at or below `band_share` (90%) of the weakest plausible figure.
+// It is one number for the whole board, so the tagged rows keep their order among themselves, and the
+// arithmetic is still a pure function of the snapshot. The factor applied is written into the data
+// (`assumptions.launch_likelihood`) and the page states it, so a reader can see the discount.
 //
 // The airdrop figure is a stated assumption, never a promise. Rank is implied value descending, ties
-// broken by TVL and then slug, and the tagged rows' launch factor puts the plausible launches at the top
-// of the board; a launch_unlikely row also carries `plausible_rank`, its position among the plausible
-// launches alone, so a page can show that standing beside the whole-board rank.
+// broken by TVL and then slug; every plausible launch ranks above every tagged protocol. A launch_unlikely
+// row also carries `plausible_rank`, its position among the plausible launches alone, so a page can show
+// that standing beside the whole-board rank.
 //
 // Everything here is a pure function of the snapshot: no clock, no randomness, no network, no name
 // special-cased anywhere. Same bytes in, same board out.
@@ -87,12 +96,18 @@ export interface ModelConstants {
   min_implied_usd: number;
   max_implied_usd: number;
   /**
-   * The launch-likelihood prior, as an expected-value factor. A plausible pre-token protocol keeps the
-   * whole value its figures imply (1). A protocol the watchlist's definition leaves out is assumed to be
-   * one-fiftieth as likely to issue a token of its own, so its expected launch value is 2% of that.
+   * The launch-likelihood factors. A plausible pre-token protocol keeps the whole value its figures imply
+   * (1). A protocol the watchlist's definition leaves out is discounted: at most 2% of that value, and
+   * less when 2% would still leave it above the weakest plausible launch (see `launch_band_share`).
    */
   launch_likelihood_plausible: number;
   launch_likelihood_unlikely: number;
+  /**
+   * The ceiling the largest tagged figure is discounted to, as a share of the weakest plausible launch's
+   * figure: 0.9 puts every launch_unlikely row strictly below every plausible one while keeping their
+   * order among themselves.
+   */
+  launch_band_share: number;
 }
 
 export const MODEL: ModelConstants = {
@@ -110,14 +125,15 @@ export const MODEL: ModelConstants = {
   max_implied_usd: 100_000_000_000_000,
   launch_likelihood_plausible: 1,
   launch_likelihood_unlikely: 0.02,
+  launch_band_share: 0.9,
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-2';
+export const MODEL_VERSION = 'radar-3';
 
 /** One line the page can print under the title. */
 export const MODEL_SUMMARY =
-  'Implied value = TVL x the median market-cap-to-TVL multiple of the protocols already trading in the same category, adjusted for 7-day growth, for how long the protocol has run with no token, and by a launch-likelihood factor (1 for a plausible launch, 0.02 for a protocol the watchlist definition leaves out).';
+  'Implied value = TVL x the median market-cap-to-TVL multiple of the protocols already trading in the same category, adjusted for 7-day growth and for how long the protocol has run with no token; a protocol the watchlist definition leaves out is discounted by the launch factor and ranks below every plausible launch.';
 
 /** The board's gate limits: a board of fewer or more rows is refused before it is written. */
 export const MIN_BOARD_ROWS = 100;
@@ -226,6 +242,10 @@ export interface AppliedMultiple {
 
 /** One pre-token protocol's score under the model. */
 export interface Scored {
+  /** The value the figures imply, before the launch factor: base x growth x maturity. */
+  figure: number;
+  figureLow: number;
+  figureHigh: number;
   implied: number;
   low: number;
   high: number;
@@ -258,6 +278,8 @@ export interface BoardRow {
   watchlist: boolean;
   launch_unlikely: boolean;
   unlikely_reasons: string[];
+  /** The reasons as one sentence, or '' on a plausible launch: the line a page prints on a tagged row. */
+  launch_reason: string;
   playbook: string;
   implied_value_usd: number;
   implied_low_usd: number;
@@ -266,9 +288,11 @@ export interface BoardRow {
   percentile: number;
   /** Position among the plausible launches alone (1 is the strongest), null on a launch_unlikely row. */
   plausible_rank: number | null;
-  /** The expected-value factor the model applied: 1 for a plausible launch, 0.02 for a tagged one. */
+  /** The expected-value factor the model applied: 1 for a plausible launch, the launch factor on a tagged row. */
   launch_likelihood: number;
   model: {
+    /** The value the figures imply, before the launch factor: base x growth x maturity. */
+    figure_value_usd: number;
     base_usd: number;
     category_multiple: number;
     category_samples: number;
@@ -301,6 +325,8 @@ export interface RadarRow {
   watchlist: boolean;
   launch_unlikely: boolean;
   unlikely_reasons: string[];
+  /** The reasons as one sentence, or '' on a plausible launch. */
+  launch_reason: string;
   playbook: string;
   implied_value_usd: number;
   implied_low_usd: number;
@@ -310,6 +336,7 @@ export interface RadarRow {
   plausible_rank: number | null;
   launch_likelihood: number;
   base_usd: number;
+  figure_value_usd: number;
   category_multiple: number;
   category_samples: number;
   multiple_source: 'category' | 'global';
@@ -317,21 +344,7 @@ export interface RadarRow {
   maturity_multiplier: number;
   maturity_years: number;
   /** The same breakdown board.json carries, for a page that reads it in one place. */
-  model: {
-    base_usd: number;
-    category_multiple: number;
-    category_samples: number;
-    multiple_source: 'category' | 'global';
-    multiple_category: string;
-    growth_pct: number;
-    growth_multiplier: number;
-    maturity_years: number;
-    maturity_multiplier: number;
-    age_days: number | null;
-    community_allocation: number;
-    eligibility_share: number;
-    launch_likelihood: number;
-  };
+  model: BoardRow['model'];
   farm_steps: string[];
 }
 
@@ -381,7 +394,18 @@ export interface RadarData {
   global_multiple: GlobalMultiple;
   multiples: CategoryMultiple[];
   exclusions: ExclusionSummary[];
-  assumptions: { community_allocation: number; eligibility_share: number; note: string };
+  assumptions: {
+    community_allocation: number;
+    eligibility_share: number;
+    /** The launch factor applied to every launch_unlikely row on this board: 1 is no discount. */
+    launch_likelihood: number;
+    /** The factor's ceiling before the ordering tightening (`model.launch_likelihood_unlikely`). */
+    launch_likelihood_ceiling: number;
+    /** The two figures the factor is derived from: the weakest plausible launch and the largest tagged one. */
+    plausible_floor_usd: number;
+    largest_unlikely_figure_usd: number;
+    note: string;
+  };
   rows: RadarRow[];
   live: LiveRow[];
 }
@@ -512,8 +536,32 @@ function impliedDollars(value: number, model: ModelConstants): number {
   return rounded;
 }
 
-/** The score one pre-token protocol gets under the model. Pure: snapshot fields in, numbers out. */
-export function impliedValue(p: SnapshotProtocol, asOf: string, table: MultipleTable, model: ModelConstants = MODEL): Scored {
+/**
+ * The launch factor: the discount a protocol the watchlist leaves out carries on this snapshot.
+ * `ceiling` (2%) unless that would still leave the largest tagged figure above the weakest plausible one,
+ * in which case the factor is shortened so the largest tagged figure lands at `launch_band_share` of the
+ * weakest plausible figure. Pure: two numbers in, one number out.
+ */
+export function launchFactor(weakestPlausibleFigure: number, largestUnlikelyFigure: number, model: ModelConstants = MODEL): number {
+  const ceiling = model.launch_likelihood_unlikely;
+  if (!(largestUnlikelyFigure > 0) || !(weakestPlausibleFigure > 0)) return ceiling;
+  const band = Math.max(1, Math.floor(weakestPlausibleFigure * model.launch_band_share));
+  const needed = band / largestUnlikelyFigure;
+  return needed < ceiling ? needed : ceiling;
+}
+
+/**
+ * The score one pre-token protocol gets under the model. Pure: snapshot fields in, numbers out.
+ * `launchLikelihood` is what the row is discounted by: the caller passes the board's launch factor for a
+ * tagged protocol and 1 for a plausible launch, so this function itself is name-blind and tag-blind.
+ */
+export function impliedValue(
+  p: SnapshotProtocol,
+  asOf: string,
+  table: MultipleTable,
+  model: ModelConstants = MODEL,
+  launchLikelihood: number = model.launch_likelihood_plausible,
+): Scored {
   const applied = appliedMultiple(table, p.category);
   const age = ageDays(asOf, p.listed_at);
   const maturityYears = age === null ? model.unknown_age_years : age / DAYS_PER_YEAR;
@@ -527,14 +575,21 @@ export function impliedValue(p: SnapshotProtocol, asOf: string, table: MultipleT
 
   const tvl = Math.max(0, p.tvl_usd);
   const base = tvl * applied.multiple;
-  const launchLikelihood = excludedBy(p).length > 0 ? model.launch_likelihood_unlikely : model.launch_likelihood_plausible;
-  const factor = growthMult * maturityMult * launchLikelihood;
-  const implied = impliedDollars(base * factor, model);
-  const low = impliedDollars(tvl * applied.p25 * factor, model);
-  const high = impliedDollars(tvl * applied.p75 * factor, model);
+  const adjust = growthMult * maturityMult;
+  const figure = impliedDollars(base * adjust, model);
+  const figureLow = impliedDollars(tvl * applied.p25 * adjust, model);
+  const figureHigh = impliedDollars(tvl * applied.p75 * adjust, model);
+
+  const factor = Math.max(0, finite(launchLikelihood, model.launch_likelihood_plausible));
+  const implied = impliedDollars(figure * factor, model);
+  const low = impliedDollars(figureLow * factor, model);
+  const high = impliedDollars(figureHigh * factor, model);
   const airdrop = Math.max(0, Math.round(implied * model.community_allocation * model.eligibility_share));
 
   return {
+    figure,
+    figureLow: Math.min(figureLow, figure),
+    figureHigh: Math.max(figureHigh, figure),
     implied,
     low: Math.min(low, implied),
     high: Math.max(high, implied),
@@ -545,7 +600,7 @@ export function impliedValue(p: SnapshotProtocol, asOf: string, table: MultipleT
     growthMult,
     maturityYears,
     maturityMult,
-    launchLikelihood,
+    launchLikelihood: factor,
     ageDays: age,
   };
 }
@@ -795,40 +850,79 @@ const bySlugCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1
 
 const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
-/** One scored row before its rank is known. */
+/** One scored row before its rank is known. `tier` is 0 for a plausible launch and 1 for a tagged one. */
 interface Pending {
   p: SnapshotProtocol;
   score: Scored;
   watchlist: boolean;
   reasons: string[];
+  tier: number;
+}
+
+/** What the board's launch discount came out as, and what it was derived from. */
+export interface LaunchSummary {
+  factor: number;
+  weakest_plausible_figure: number;
+  largest_unlikely_figure: number;
+}
+
+/** The board and the launch discount it was built with. */
+export interface BoardBuild {
+  rows: BoardRow[];
+  launch: LaunchSummary;
 }
 
 /**
  * The board: every pre-token protocol in the snapshot, ranked by implied value descending, ties broken
  * by TVL and then slug. Nothing is excluded from the board: the protocols the watchlist's definition
- * leaves out carry `launch_unlikely` with the reason, and the page can filter them away.
+ * leaves out carry `launch_unlikely` with the reason, the launch factor keeps every one of them below
+ * every plausible launch, and the page can filter them away.
  */
-export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL, table: MultipleTable = buildMultiples(snapshot, model)): BoardRow[] {
+export function buildBoard(
+  snapshot: Snapshot,
+  model: ModelConstants = MODEL,
+  table: MultipleTable = buildMultiples(snapshot, model),
+): BoardBuild {
   const watch = new Set(snapshot.watchlist);
-  const pending: Pending[] = snapshot.protocols
+  const staged = snapshot.protocols
     .filter(isPreToken)
     .map((p) => ({
       p,
-      score: impliedValue(p, snapshot.as_of, table, model),
       watchlist: watch.has(p.slug),
       reasons: excludedBy(p).map((rule) => rule.label),
     }));
 
+  // Pass 1: what the snapshot's figures imply, with no discount, so the discount can be set from them.
+  const figures = staged.map((item) => impliedValue(item.p, snapshot.as_of, table, model, model.launch_likelihood_plausible));
+  let weakestPlausible = Number.POSITIVE_INFINITY;
+  let largestUnlikely = 0;
+  staged.forEach((item, i) => {
+    const figure = figures[i]!.figure;
+    if (item.reasons.length === 0) weakestPlausible = Math.min(weakestPlausible, figure);
+    else largestUnlikely = Math.max(largestUnlikely, figure);
+  });
+  const factor = Number.isFinite(weakestPlausible)
+    ? launchFactor(weakestPlausible, largestUnlikely, model)
+    : model.launch_likelihood_unlikely;
+
+  // Pass 2: the board's own value, with the launch factor on the tagged rows and 1 on the plausible ones.
+  const pending: Pending[] = staged.map((item, i) => ({
+    ...item,
+    tier: item.reasons.length === 0 ? 0 : 1,
+    score: item.reasons.length === 0 ? figures[i]! : impliedValue(item.p, snapshot.as_of, table, model, factor),
+  }));
+
   pending.sort(
     (a, b) =>
       b.score.implied - a.score.implied ||
+      a.tier - b.tier ||
       b.p.tvl_usd - a.p.tvl_usd ||
       bySlugCodeUnit(a.p.slug, b.p.slug),
   );
 
   const total = pending.length;
   let plausibleSeen = 0;
-  return pending.map((item, i) => {
+  const rows = pending.map((item, i) => {
     const rank = i + 1;
     const { p, score } = item;
     const plausibleRank = item.reasons.length === 0 ? (plausibleSeen += 1) : null;
@@ -849,6 +943,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL, ta
       watchlist: item.watchlist,
       launch_unlikely: item.reasons.length > 0,
       unlikely_reasons: item.reasons,
+      launch_reason: item.reasons.join('; '),
       playbook: playbookFor(p.category),
       implied_value_usd: score.implied,
       implied_low_usd: score.low,
@@ -858,6 +953,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL, ta
       plausible_rank: plausibleRank,
       launch_likelihood: score.launchLikelihood,
       model: {
+        figure_value_usd: score.figure,
         base_usd: Math.round(score.base),
         category_multiple: round4(score.applied.multiple),
         category_samples: score.applied.samples,
@@ -875,6 +971,14 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL, ta
       farm_steps: farmSteps(p, score.ageDays).map(stepText),
     };
   });
+  return {
+    rows,
+    launch: {
+      factor,
+      weakest_plausible_figure: Number.isFinite(weakestPlausible) ? weakestPlausible : 0,
+      largest_unlikely_figure: largestUnlikely,
+    },
+  };
 }
 
 /** The already-trading protocols, for the reference table: every one, by market cap, with its real mcap. */
