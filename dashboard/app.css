@@ -112,6 +112,10 @@ main { display: block; padding: 0 var(--s4) var(--s6); max-width: 1560px; margin
   font-family: var(--font); font-size: 10.5px; font-weight: 400; color: var(--dim);
   margin-left: 6px; letter-spacing: 0; text-transform: none;
 }
+@media (max-width: 900px) {
+  .stat dd { white-space: normal; }
+  .stat dd small { display: block; margin-left: 0; }
+}
 .stat-accent dd { color: var(--green); }
 .stat-warn dd { color: var(--amber); }
 
@@ -188,8 +192,12 @@ thead th .sort {
 }
 thead th .sort:hover { color: var(--text); }
 thead th[aria-sort="descending"] .sort, thead th[aria-sort="ascending"] .sort { color: var(--green); }
-thead th[aria-sort="descending"] .sort::after { content: "v"; font-size: 9px; }
-thead th[aria-sort="ascending"] .sort::after { content: "^"; font-size: 9px; }
+thead th[aria-sort] .sort::after {
+  content: ""; width: 0; height: 0; margin-left: 3px; flex: none;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+}
+thead th[aria-sort="descending"] .sort::after { border-top: 4px solid var(--green); }
+thead th[aria-sort="ascending"] .sort::after { border-bottom: 4px solid var(--green); }
 th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .board-table td { padding: 4px var(--s3); border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
 .board-table tbody tr { cursor: pointer; transition: background-color 100ms ease; }
@@ -250,7 +258,7 @@ td.cell-name .meta-row { display: flex; align-items: center; gap: 6px; min-width
   background: var(--bg-deep); border: 1px solid var(--line-soft); border-left: 2px solid var(--green);
   border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 0 0 10px;
 }
-.assumption { border-left-color: var(--amber); color: var(--amber); }
+.assumption { border-left-color: var(--amber); color: var(--text-2); }
 
 /* Footer */
 .foot { border-top: 1px solid var(--line-soft); padding: var(--s4) var(--s4) var(--s5); color: var(--dim); font-size: 11.5px; }
