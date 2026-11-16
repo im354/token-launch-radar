@@ -8,10 +8,13 @@ them. Node 22.18+, standard library only, no dependencies, no `package.json`.
 ## Status
 
 Updated 2026-11-16. Runs: `MAKEFUN_OUTPUT_DIR=out node main.ts --input <kit>/input` writes all
-five deliverables and two runs into two directories are byte-identical. Open: no GitHub remote
-exists yet, so `repo_public`, `repo_created_after_open` and `commit_in_repo` cannot pass; and
-`thinking_reproduces` needs the sessions that wrote `lib/model.ts` and `main.ts`, which only a
-bundle built after their turn has been journaled will carry.
+five deliverables with exit 0, and `scripts/verify.mjs` passes 6/6 gate rows. `makefun check`
+is 12 pass, 1 fail, 6 skip, 5 at submission. Open: no GitHub remote, so `repo_public`,
+`repo_created_after_open` and `commit_in_repo` cannot pass, and the README badges still carry
+`{owner}`; and `thinking_reproduces` is stuck at 159/2706 (5.8%) because this chat has no
+journal at all — the only two `~/.superbot/sessions/ses_*.jsonl` files stop at 2026-11-15T12:15Z,
+before the model was rewritten, and the live chat record under `~/.superbot/chats/` holds text
+only, no tool calls, so no bundle can show the code being written. Filed as br_mwiq80yt_e3f1eeeb.
 
 ## Run
 
