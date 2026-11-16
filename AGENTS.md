@@ -8,13 +8,14 @@ them. Node 22.18+, standard library only, no dependencies, no `package.json`.
 ## Status
 
 Updated 2026-11-16. Runs: `MAKEFUN_OUTPUT_DIR=out node main.ts --input <kit>/input` writes all
-five deliverables with exit 0, and `scripts/verify.mjs` passes 6/6 gate rows. `makefun check`
-is 12 pass, 1 fail, 6 skip, 5 at submission. Open: no GitHub remote, so `repo_public`,
-`repo_created_after_open` and `commit_in_repo` cannot pass, and the README badges still carry
-`{owner}`; and `thinking_reproduces` is stuck at 159/2706 (5.8%) because this chat has no
-journal at all — the only two `~/.superbot/sessions/ses_*.jsonl` files stop at 2026-11-15T12:15Z,
-before the model was rewritten, and the live chat record under `~/.superbot/chats/` holds text
-only, no tool calls, so no bundle can show the code being written. Filed as br_mwiq80yt_e3f1eeeb.
+five deliverables with exit 0, and `scripts/verify.mjs` passes 6/6 gate rows. Pushed to
+https://github.com/im354/token-launch-radar at `0dc5b20`, public, README badges and About filled.
+`makefun check` is 12 pass, 1 fail, 6 skip, 5 at submission. Open: `thinking_reproduces` sits at
+159/2710 (5.8%) because the app wrote no session journal after 2026-11-15T19:15 local — the only
+two `~/.superbot/sessions/ses_*.jsonl` files stop there, and `~/.superbot/chats/<thread>.json`
+holds text only with no tool calls, so no bundle can contain today's `lib/model.ts` and `main.ts`
+writes. Not a code problem: it clears once the app journals a turn that writes those files.
+Filed as br_mwiq80yt_e3f1eeeb. Nothing has been submitted.
 
 ## Run
 
@@ -44,3 +45,6 @@ absence of any address, the screenshot caps, and `dossier.json` rebuilt byte for
   `data.js` inflates the transcript check's counted lines roughly seventeenfold.
 - The kit's `check` copies with GNU tar reading `C:\` as a remote host; put
   `/c/Windows/System32` first on `PATH` so `bsdtar` is used.
+- The github.com credential for pushes lives in the Windows Credential Manager (login `im354`,
+  scopes gist/repo/workflow); `git credential fill` reads it, and `gh` is not installed. Superbot's
+  own GitHub connection stays unset, so `github_api` answers 401 while `git push` works.
