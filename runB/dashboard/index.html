@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Token Launch Radar</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a class="skip" href="#board">Skip to the ranked board</a>
+
+<header class="topbar">
+  <div class="bar-in">
+    <div class="brand">
+      <span class="scope" aria-hidden="true"></span>
+      <span class="brand-name">Token Launch Radar</span>
+    </div>
+    <div class="topmeta">
+      <span class="chip" id="chip-snapshot">snapshot —</span>
+      <span class="chip chip-quiet" id="chip-model">model —</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title">Which pre-token protocol has the most value to distribute?</h1>
+    <p class="lede" id="hero-lede">Every pre-token protocol, ranked by what a token could be worth if its record stayed as it is: TVL x its category's median market-cap multiple, adjusted for growth and a capped maturity premium.</p>
+    <dl class="stats" id="stats"></dl>
+  </section>
+
+  <section class="controls" aria-label="Board filters and sorting">
+    <div class="control control-search">
+      <label for="filter-q">Search</label>
+      <input id="filter-q" type="search" autocomplete="off" spellcheck="false" placeholder="Name, slug, chain or reason">
+    </div>
+    <div class="control">
+      <label for="filter-category">Category</label>
+      <select id="filter-category"><option value="all">All categories</option></select>
+    </div>
+    <div class="control">
+      <label for="filter-chain">Chain</label>
+      <select id="filter-chain"><option value="all">All chains</option></select>
+    </div>
+    <div class="control">
+      <label for="filter-band">TVL band</label>
+      <select id="filter-band">
+        <option value="all">Any TVL</option>
+        <option value="0-100m">Under $100M</option>
+        <option value="100m-500m">$100M - $500M</option>
+        <option value="500m-1b">$500M - $1B</option>
+        <option value="1b-5b">$1B - $5B</option>
+        <option value="5b-plus">$5B and up</option>
+      </select>
+    </div>
+    <div class="control control-toggles">
+      <div class="toggle-row" role="group" aria-label="Row filters">
+        <button type="button" class="toggle" id="toggle-watchlist" aria-pressed="false"><span class="dot"></span>Watchlist only</button>
+        <button type="button" class="toggle" id="toggle-unlikely" aria-pressed="false"><span class="dot"></span>Hide unlikely launches</button>
+      </div>
+    </div>
+    <div class="control control-reset">
+      <button type="button" class="ghost" id="reset-filters">Reset</button>
+    </div>
+  </section>
+
+  <section class="board-section" id="board" aria-labelledby="board-title">
+    <div class="section-head">
+      <h2 id="board-title">Ranked board</h2>
+      <p class="section-note" id="board-note">Rank 1 is the highest implied value. Unlikely launches stay on the board, flagged with the reason on the row.</p>
+      <p class="count" id="result-count" aria-live="polite">—</p>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Ranked board, scrollable">
+      <table class="board-table" id="board-table">
+        <caption class="visually-hidden">Pre-token protocols ranked by implied token value</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="col-rank" data-key="rank"><button type="button" class="sort" data-sort="rank">Rank</button></th>
+            <th scope="col" class="col-name" data-key="name"><button type="button" class="sort" data-sort="name">Protocol</button></th>
+            <th scope="col" data-key="category"><button type="button" class="sort" data-sort="category">Category</button></th>
+            <th scope="col" data-key="chains"><button type="button" class="sort" data-sort="chains">Chains</button></th>
+            <th scope="col" class="num" data-key="tvl"><button type="button" class="sort" data-sort="tvl">TVL</button></th>
+            <th scope="col" class="num" data-key="change"><button type="button" class="sort" data-sort="change">7d %</button></th>
+            <th scope="col" class="num" data-key="age"><button type="button" class="sort" data-sort="age">Age</button></th>
+            <th scope="col" class="num col-implied" data-key="implied"><button type="button" class="sort" data-sort="implied">Implied value</button></th>
+            <th scope="col" class="num" data-key="airdrop"><button type="button" class="sort" data-sort="airdrop">Expected airdrop</button></th>
+            <th scope="col" class="col-watch" data-key="watchlist"><button type="button" class="sort" data-sort="watchlist">Watchlist</button></th>
+          </tr>
+        </thead>
+        <tbody id="board-rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="board-empty" hidden>No protocol matches these filters. Clear a filter or the search box to see the full board.</p>
+  </section>
+
+  <section class="reference" aria-labelledby="ref-title">
+    <div class="section-head">
+      <h2 id="ref-title">Already trading: reference only</h2>
+      <p class="section-note">These protocols record a token, so the board never ranks them. Their market capitalisation is the market's own figure and is shown here only as the anchor the multiples come from.</p>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Already-trading reference table, scrollable">
+      <table class="ref-table">
+        <caption class="visually-hidden">Protocols whose token already trades, with their market capitalisation</caption>
+        <thead>
+          <tr><th scope="col">Protocol</th><th scope="col">Category</th><th scope="col" class="num">TVL</th><th scope="col" class="num">Market cap</th><th scope="col" class="num">MCap / TVL</th></tr>
+        </thead>
+        <tbody id="ref-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="how" id="how" aria-labelledby="how-title">
+    <div class="section-head">
+      <h2 id="how-title">How this radar works</h2>
+      <p class="section-note">Three rules decide every number on the board: the value model, what stays off it, and the airdrop assumption.</p>
+    </div>
+    <div class="how-grid">
+      <article class="how-card">
+        <h3><span class="step">1</span>The value model</h3>
+        <p>Each protocol's implied value starts from its own TVL, never from a list of names. The board takes every protocol that already trades and has a TVL, divides its market cap by that TVL, and keeps the median multiple per category. A category needs at least three trading peers, otherwise the global median across all trading protocols stands in.</p>
+        <p class="formula">base = tvl_usd x category_multiple<br>growth = 1 + clamp(change_7d, -30, 60) / 100 x 0.5<br>maturity = 0.7 + 0.3 x min(years_listed, 5) / 5<br>figure = clamp(round(base x growth x maturity), 1, 100T)<br>launch = 1 for a plausible launch, else the launch factor f<br>implied_value_usd = clamp(round(figure x launch), 1, 100T)</p>
+        <p>The low and high ends of each row's band come from the 25th and 75th percentile multiples of the same category, so the band shows how much the answer moves between a cheap and an expensive peer set. Two adjustments bend the line. Growth: a protocol adding TVL is bid as if the trend persists, at half weight, capped at plus 60 percent and floored at minus 30 percent. Maturity: a protocol that has run longer without a token has had longer to accumulate supply to distribute, capped at five years so the effect cannot run away. A missing seven-day change counts as no change; a missing listing date counts as one year.</p>
+      </article>
+      <article class="how-card">
+        <h3><span class="step">2</span>What stays off the ranked board</h3>
+        <p>A protocol is pre-token when it records no CoinGecko id and no symbol. Everything else already trades and is listed in the reference table above with its real market cap, never mixed into the ranking.</p>
+        <p>Some pre-token protocols are unlikely to issue a token of their own even though nothing trades yet: exchange-run products, bridges and canonical bridges, liquid staking and restaking categories, names carrying the whole words wrapped, staked or staking, names ending in a version marker, and names that begin with an exchange's name. Those are the same rules the watchlist uses. Nothing is deleted: each one stays on the board, is tagged unlikely, and states its reason on the row and in the detail view. <span id="order-claim">It ranks below every plausible launch.</span></p>
+        <p>That ordering is made true by the value, not by the sort order, because the board is ranked by implied value and nothing else. One launch factor f discounts every tagged row's figure: f is at most 2 percent, and shorter whenever 2 percent would still leave the largest tagged figure above the weakest plausible launch, so f = min(2%, 0.9 x the weakest plausible figure / the largest tagged figure). The factor this snapshot used is printed on every tagged row's detail view, so the discount can be read rather than assumed.</p>
+        <p>The watchlist is a floor, never a ceiling: every watchlist protocol is on the board, and so is every other pre-token protocol the snapshot holds.</p>
+      </article>
+      <article class="how-card">
+        <h3><span class="step">3</span>The airdrop assumption</h3>
+        <p>Expected airdrop is a stated assumption, not a promise and not a forecast: implied value x 5 percent for a community allocation x 10 percent for the share an active farmer might receive. Both numbers are placeholders a reader should argue with. Nothing here says a protocol will issue a token, or when, or that any allocation exists. A farm plan describes work a person can do; it is not advice, and every step can lose money.</p>
+        <p class="assumption">expected_airdrop_usd = implied_value_usd x 0.05 x 0.10</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <p class="foot-facts"><strong>Snapshot</strong> <span id="foot-snapshot">—</span> · <strong>Floor</strong> <span id="foot-floor">—</span> · <strong>Model</strong> <span id="foot-model">—</span></p>
+    <p>Implied value is the radar's own estimate from one sealed snapshot. It is not a price, a promise, or advice. DefiLlama's record is not proof: a protocol shown here as pre-token may still have a token its record does not carry.</p>
+  </div>
+</footer>
+
+<div class="detail" id="detail" role="dialog" aria-modal="false" aria-labelledby="detail-name" hidden>
+  <div class="detail-inner">
+    <div class="detail-head">
+      <div>
+        <p class="detail-kicker" id="detail-kicker">Protocol</p>
+        <h2 id="detail-name">—</h2>
+        <p class="detail-sub" id="detail-sub"></p>
+      </div>
+      <button type="button" class="close" id="detail-close" aria-label="Close the protocol detail">Close</button>
+    </div>
+    <div class="detail-body" id="detail-body" tabindex="0" aria-label="Protocol detail"></div>
+  </div>
+</div>
+
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
