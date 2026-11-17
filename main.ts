@@ -18,6 +18,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { join, resolve } from 'node:path';
 import { buildDossier } from './vendor/makefun-board.ts';
 import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
+import { auditSensitivity, renderTable, sensitivityIssue, stabilityLine } from './lib/sensitivity.ts';
 
 const HERE = import.meta.dirname;
 const TEXT_MAX_BYTES = 65_536;
@@ -38,6 +39,16 @@ function replaceDir(source: string, target: string): void {
   if (!existsSync(source)) throw new Error('missing ' + source + ': the entry ships it beside main.ts');
   rmSync(target, { recursive: true, force: true });
   cpSync(source, target, { recursive: true });
+}
+
+// Rank stability is a check on the model, not a sixth deliverable: the audit is printed and
+// the board on disk is untouched. --audit asks for the whole table instead of one line.
+function reportStability(radar: ReturnType<typeof buildRadar>): void {
+  const audit = auditSensitivity(radar.rows);
+  const issue = sensitivityIssue(audit, radar.rows);
+  if (issue !== null) throw new Error('the stability audit fails its own check: ' + issue);
+  process.stdout.write(stabilityLine(audit) + '\n');
+  if (process.argv.includes('--audit')) process.stdout.write(renderTable(audit));
 }
 
 function main(): void {
@@ -76,6 +87,8 @@ function main(): void {
       radar.counts.watchlist_covered + '/' + radar.watchlist_size + ' watchlist, ' +
       radar.live.length + ' trading reference, launch factor ' + radar.assumptions.launch_factor.toFixed(6) + '\n',
   );
+
+  reportStability(radar);
 }
 
 try {
