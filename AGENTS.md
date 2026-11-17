@@ -7,15 +7,15 @@ them. Node 22.18+, standard library only, no dependencies, no `package.json`.
 
 ## Status
 
-Updated 2026-11-16. Runs: `MAKEFUN_OUTPUT_DIR=out node main.ts --input <kit>/input` writes all
-five deliverables with exit 0, and `scripts/verify.mjs` passes 6/6 gate rows. Pushed to
-https://github.com/im354/token-launch-radar at `0dc5b20`, public, README badges and About filled.
-`makefun check` is 12 pass, 1 fail, 6 skip, 5 at submission. Open: `thinking_reproduces` sits at
-159/2710 (5.8%) because the app wrote no session journal after 2026-11-15T19:15 local — the only
-two `~/.superbot/sessions/ses_*.jsonl` files stop there, and `~/.superbot/chats/<thread>.json`
-holds text only with no tool calls, so no bundle can contain today's `lib/model.ts` and `main.ts`
-writes. Not a code problem: it clears once the app journals a turn that writes those files.
-Filed as br_mwiq80yt_e3f1eeeb. Nothing has been submitted.
+Updated 2026-11-17. Runs: `MAKEFUN_OUTPUT_DIR=out node main.ts --input <kit>/input` writes all
+five deliverables with exit 0 and prints one stability line; `--audit` prints the whole table.
+Two runs into `runA` and `runB` are byte-identical (9 files) and `scripts/verify.mjs` passes 6/6
+gate rows. Pushed to https://github.com/im354/token-launch-radar at `b8943da`, public, README
+badges and About filled. `makefun check` with the bundle from `bundle` is 13 pass, 0 fail,
+6 skip, 5 at submission (`ok: true`): `thinking_reproduces` accounts for 949 of 3045 counted
+lines (31.1%), the entrypoint `main.ts` for 66. Nothing has been submitted. The 6 skips need
+things only the person has (strategy note, pushed secret, signed entry), and the 5 submission
+rows are the server's to settle.
 
 ## Run
 
@@ -32,7 +32,15 @@ absence of any address, the screenshot caps, and `dossier.json` rebuilt byte for
 
 - `lib/model.ts` — the whole model: sets, exclusion rules, category multiples, growth and
   maturity, the launch factor, playbooks, `boardIssue`, `dataScript`. No protocol is named.
-- `main.ts` — arguments, the four writes, the dossier, and the `boardIssue` assertion.
+- `lib/sensitivity.ts` — the rank-stability audit: re-ranks the finished rows under six
+  structural readings and the no-launch-discount counterfactual, reports each row's best and
+  worst rank, each reading's survival of the top ten and pairwise agreement over the top
+  fifty, each category's own stability, and the watchlist's numbers. It changes no
+  deliverable. Its current verdict, which is worth knowing before quoting a rank: 5/10 of the
+  top ten keep their place under every structural reading, 6/40 watchlist protocols move ten
+  places or fewer, and the median protocol moves 25 places.
+- `main.ts` — arguments, the four writes, the dossier, the `boardIssue` assertion, and the
+  audit it prints (the whole table with `--audit`).
 - `dashboard/` — three static files, no address of any kind, reading `window.RADAR`.
 - `vendor/makefun-board.ts` — the kit's, byte for byte; never edit it.
 
@@ -43,6 +51,14 @@ absence of any address, the screenshot caps, and `dossier.json` rebuilt byte for
   without being silently dropped.
 - `runA/`, `runB/`, `out*/` are generated and stay out of the tree: committing a generated
   `data.js` inflates the transcript check's counted lines roughly seventeenfold.
+- The stability audit is a check, not a sixth deliverable: writing it into the output
+  directory would add a beside-file the dashboard and the dossier do not expect, so
+  `main.ts` prints it and `sensitivityIssue` guards every run.
+- `thinking_reproduces` counts every text line in the repository, including the files no
+  session ever wrote (`dashboard/app.js`, `RULES.txt`, `vendor/`, `scripts/`: 1,283 lines).
+  The bundle clears 30% at 31.1%, so new code belongs in files the recorded session writes,
+  and a commit of unattributed lines can push it under. Re-bundle and re-check after any
+  such commit.
 - The kit's `check` copies with GNU tar reading `C:\` as a remote host; put
   `/c/Windows/System32` first on `PATH` so `bsdtar` is used.
 - The github.com credential for pushes lives in the Windows Credential Manager (login `im354`,
